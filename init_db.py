@@ -5,7 +5,7 @@ def setup_database():
     cursor = conn.cursor()
     
     # 1. Reset Tables
-    tables = ['users', 'results', 'attendance', 'curriculum', 'reports', 'event_registrations', 'campus_events']
+    tables = ['users', 'results', 'attendance', 'curriculum', 'reports', 'event_registrations', 'campus_events', 'fest_registrations']
     for table in tables:
         cursor.execute(f'DROP TABLE IF EXISTS {table}')
     
@@ -16,49 +16,66 @@ def setup_database():
     cursor.execute('CREATE TABLE curriculum (id INTEGER PRIMARY KEY AUTOINCREMENT, branch TEXT, semester TEXT, subject_code TEXT, subject_name TEXT)')
     cursor.execute('CREATE TABLE reports (id INTEGER PRIMARY KEY AUTOINCREMENT, roll_number TEXT, issue_type TEXT, description TEXT, status TEXT DEFAULT "Pending")')
     cursor.execute('CREATE TABLE event_registrations (id INTEGER PRIMARY KEY AUTOINCREMENT, roll_number TEXT, event_title TEXT)')
+    cursor.execute('CREATE TABLE campus_events (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, date TEXT, description TEXT, faculty TEXT, contact TEXT)')
     
-    # NEW: Dynamic Events Table
+    # NEW: Tech Fest Table
     cursor.execute('''
-        CREATE TABLE campus_events (
+        CREATE TABLE fest_registrations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT,
-            date TEXT,
-            description TEXT,
-            faculty TEXT,
-            contact TEXT
+            roll_number TEXT,
+            name TEXT,
+            branch TEXT,
+            payment_type TEXT
         )
     ''')
 
-    # 3. Insert Mock Data (Users, Results, Attendance, Curriculum)
+    # 3. MOCK DATA: Admins & A Full Campus of Students
     users_data = [
+        # Admins
         ('admin_jahnavi', 'admin123', 'Prof. Jahnavi', 'N/A', 'CSE Dept', 'admin'),
         ('admin_tejaswini', 'admin123', 'Prof. Tejaswini', 'N/A', 'AI & DS Dept', 'admin'),
+        ('admin_jagadish', 'admin123', 'Prof. Jagadish', 'N/A', 'ECE Dept', 'admin'),
+        # Seniors (2024)
+        ('248p1a3078', 'pass123', 'Omkar', '2024', 'Mechanical Engineering', 'student'),
+        ('248p1a30a0', 'pass123', 'Pavan', '2024', 'Civil Engineering', 'student'),
+        # Juniors (2025)
         ('258p5a3006', 'pass123', 'Surya', '2025', 'Computer Science', 'student'),
-        ('258p5a3008', 'pass123', 'Uday', '2025', 'Computer Science', 'student')
+        ('258p5a3008', 'pass123', 'Uday', '2025', 'Computer Science', 'student'),
+        # Sophomores (2026)
+        ('268p1a3012', 'pass123', 'Ananya', '2026', 'Artificial Intelligence', 'student'),
+        ('268p1a3045', 'pass123', 'Karthik', '2026', 'Electronics (ECE)', 'student')
     ]
     cursor.executemany('INSERT INTO users VALUES (?, ?, ?, ?, ?, ?)', users_data)
     
-    cursor.executemany('INSERT INTO results (roll_number, semester, gpa) VALUES (?, ?, ?)', [
-        ('258p5a3006', 'Semester 1', 8.2), ('258p5a3006', 'Semester 2', 8.7), ('258p5a3006', 'Semester 3', 8.5), ('258p5a3006', 'Semester 4', 9.1)
-    ])
+    # Base GPA & Attendance for Surya
+    cursor.executemany('INSERT INTO results (roll_number, semester, gpa) VALUES (?, ?, ?)', [('258p5a3006', 'Semester 1', 8.2), ('258p5a3006', 'Semester 2', 8.7), ('258p5a3006', 'Semester 3', 8.5), ('258p5a3006', 'Semester 4', 9.1)])
     cursor.executemany('INSERT INTO attendance VALUES (?, ?, ?, ?)', [('258p5a3006', 150, 132, 88.0)])
-    cursor.executemany('INSERT INTO curriculum (branch, semester, subject_code, subject_name) VALUES (?, ?, ?, ?)', [
-        ('Computer Science', 'Semester 5', 'CS501', 'Artificial Intelligence')
+
+    # 4. MOCK EVENTS & REGISTRATIONS
+    cursor.executemany('INSERT INTO campus_events (title, date, description, faculty, contact) VALUES (?, ?, ?, ?, ?)', [
+        ('Cybersecurity Workshop', 'Nov 15', 'Practical vulnerability assessment.', 'Prof. Jahnavi', 'jahnavi@acem.edu'),
+        ('Data Science Hackathon', 'Nov 22', 'Build a Recommender System.', 'Prof. Tejaswini', 'tejaswini@acem.edu')
+    ])
+    cursor.executemany('INSERT INTO event_registrations (roll_number, event_title) VALUES (?, ?)', [
+        ('258p5a3008', 'Cybersecurity Workshop'), ('268p1a3012', 'Data Science Hackathon'), ('248p1a3078', 'Data Science Hackathon')
     ])
 
-    # 4. NEW: Insert Default Dynamic Events
-    events_data = [
-        ('Cybersecurity Workshop', 'Nov 15', 'Learn practical vulnerability assessment techniques.', 'Prof. Jahnavi', 'jahnavi.cse@acem.edu'),
-        ('Data Science Hackathon', 'Nov 22', 'Build a Recommender System in 24 hours.', 'Prof. Tejaswini', 'tejaswini.ai@acem.edu')
-    ]
-    cursor.executemany('INSERT INTO campus_events (title, date, description, faculty, contact) VALUES (?, ?, ?, ?, ?)', events_data)
+    # 5. NEW: Mock Tech Fest Registrations (UPI vs Cash)
+    cursor.executemany('INSERT INTO fest_registrations (roll_number, name, branch, payment_type) VALUES (?, ?, ?, ?)', [
+        ('258p5a3008', 'Uday', 'Computer Science', 'PhonePe'),
+        ('248p1a3078', 'Omkar', 'Mechanical Engineering', 'Cash'),
+        ('268p1a3012', 'Ananya', 'Artificial Intelligence', 'GooglePay')
+    ])
 
-    # 5. NEW: Add a mock registration so Admins have data to see
-    cursor.execute('INSERT INTO event_registrations (roll_number, event_title) VALUES (?, ?)', ('258p5a3008', 'Cybersecurity Workshop'))
+    # 6. NEW: Mock Grievance Reports (To trigger the Dashboard Alerts)
+    cursor.executemany('INSERT INTO reports (roll_number, issue_type, description, status) VALUES (?, ?, ?, ?)', [
+        ('258p5a3008', 'Bus/Transport', 'The route 4 bus was 30 minutes late today.', 'Pending'),
+        ('268p1a3045', 'Hostel', 'Wi-Fi is not working on the 3rd floor.', 'Pending')
+    ])
 
     conn.commit()
     conn.close()
-    print("Database updated with Dynamic Events Manager!")
+    print("Database updated with Tech Fest, Bus Reports, and Full Campus Roster!")
 
 if __name__ == "__main__":
     setup_database()
