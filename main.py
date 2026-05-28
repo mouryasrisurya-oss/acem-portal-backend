@@ -160,3 +160,56 @@ async def get_all_reports():
     reports = conn.execute("SELECT * FROM reports").fetchall()
     conn.close()
     return {"reports": [dict(row) for row in reports]}
+# --- NEW: ATTENDANCE & CURRICULUM SCHEMAS ---
+class AttendanceUpdate(BaseModel):
+    roll_number: str
+    total_classes: int
+    attended_classes: int
+
+class CurriculumAdd(BaseModel):
+    branch: str
+    semester: str
+    subject_code: str
+    subject_name: str
+
+# --- NEW: STUDENT ENDPOINTS ---
+@app.get("/attendance/{roll_number}")
+async def get_attendance(roll_number: str):
+    conn = get_db_connection()
+    record = conn.execute("SELECT * FROM attendance WHERE roll_number = ?", (roll_number,)).fetchone()
+    conn.close()
+    if record:
+        return {"success": True, "data": dict(record)}
+    return {"success": False, "message": "No attendance data found."}
+
+@app.get("/curriculum/{branch}/{semester}")
+async def get_curriculum(branch: str, semester: str):
+    conn = get_db_connection()
+    records = conn.execute("SELECT * FROM curriculum WHERE branch = ? AND semester = ?", (branch, semester)).fetchall()
+    conn.close()
+    return {"success": True, "data": [dict(r) for r in records]}
+
+# --- NEW: ADMIN ENDPOINTS ---
+@app.post("/admin/update-attendance")
+async def update_attendance(data: AttendanceUpdate):
+    percentage = round((data.attended_classes / data.total_classes) * 100, 2)
+    conn = get_db_connection()
+    # Insert or Replace updates the row if the student already exists
+    conn.execute('''
+        INSERT OR REPLACE INTO attendance (roll_number, total_classes, attended_classes, percentage)
+        VALUES (?, ?, ?, ?)
+    ''', (data.roll_number, data.total_classes, data.attended_classes, percentage))
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": f"Attendance updated! New percentage: {percentage}%"}
+
+@app.post("/admin/add-curriculum")
+async def add_curriculum(data: CurriculumAdd):
+    conn = get_db_connection()
+    conn.execute('''
+        INSERT INTO curriculum (branch, semester, subject_code, subject_name)
+        VALUES (?, ?, ?, ?)
+    ''', (data.branch, data.semester, data.subject_code, data.subject_name))
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": "Subject added to curriculum successfully!"}
